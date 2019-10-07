@@ -258,6 +258,7 @@ std::uint32_t load_le_uint32(const char* const ptr)
 	return ret;
 }
 
+// this class is based on https://github.com/gummikana/poro
 struct rng {
 	double seed;
 
