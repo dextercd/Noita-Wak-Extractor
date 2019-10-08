@@ -247,7 +247,10 @@ struct rng {
 
 mask counter_from_file_index(std::size_t file_index)
 {
-	auto r = rng{static_cast<double>(23456911 + file_index)};
+	auto seed = static_cast<double>(23456911 + file_index);
+	if(seed >= 2147483647.00000000)
+		seed *= 0.5;
+	auto r = rng{seed};
 	r.next(); // throw one value away for good luck!
 
 	int numbers[4]{};
