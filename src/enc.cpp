@@ -328,11 +328,11 @@ int main(int argc, char** argv)
 	}
 
 	file.seekg(0, std::ios_base::end);
-	const auto size = file.tellg();
+	const auto wak_size = file.tellg();
 	file.seekg(0, std::ios_base::beg);
 
-	const auto memory = std::make_unique<char[]>(size);
-	file.read(memory.get(), size);
+	const auto memory = std::make_unique<char[]>(wak_size);
+	file.read(memory.get(), wak_size);
 
 	const auto header = memory.get();
 	const auto header_size = 0x10;
@@ -369,6 +369,11 @@ int main(int argc, char** argv)
 		std::cout << "file offset = " << file_offset << '\n';
 		std::cout << "file size = " << file_size << '\n';
 		std::cout << "file name = " << file_name << '\n';
+
+		if(file_offset + file_size > wak_size) {
+			std::cerr << "file is out of bounds.\n";
+			return 4;
+		}
 		
 		const auto counter = counter_from_file_index(file_index);
 		const auto file_contents = header + file_offset;
