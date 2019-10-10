@@ -100,6 +100,7 @@ std::uint32_t xorshift(std::uint32_t in)
 	return ((in & 0xff) >> 7) * 0x1b ^ (in & 0xff) * 2;
 }
 
+// I HAVE ANGERED THE GODS
 mask xorify(mask original)
 {
 	auto ptr = original.bytes + 2;
