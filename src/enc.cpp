@@ -8,6 +8,14 @@
 
 namespace fs = std::filesystem;
 
+enum class encrypt_type {
+    plain,
+    v1,
+    v2,
+};
+
+encrypt_type type = encrypt_type::plain;
+
 struct mask {
     unsigned char bytes[16];
 };
@@ -211,6 +219,9 @@ mask make_mask(mask counter, encryption_state* t)
 
 void decrypt(encryption_state* t, char* data, std::size_t size)
 {
+    if (type == encrypt_type::plain)
+        return;
+
     mask current_mask{};
     std::size_t mask_index{16};
 
@@ -262,8 +273,12 @@ struct rng {
 mask counter_from_file_index(std::size_t file_index)
 {
     auto seed = static_cast<double>(23456911 + file_index);
-    if(seed >= 2147483647.00000000)
-        seed *= 0.5;
+
+    if (type == encrypt_type::v2) {
+        if(seed >= 2147483647.00000000)
+            seed *= 0.5;
+    }
+
     auto r = rng{seed};
     r.next(); // throw one value away for good luck!
 
@@ -281,14 +296,6 @@ mask counter_from_file_index(std::size_t file_index)
     return counter;
 }
 
-const encryption_state initial_header{
-    counter_from_file_index(1)
-};
-
-const encryption_state initial_file_table{
-    counter_from_file_index(0x7ffffffe)
-};
-
 void create_binary_file(fs::path path, const char* begin, std::size_t size)
 {
     std::ofstream of{path, std::ios::binary};
@@ -297,18 +304,40 @@ void create_binary_file(fs::path path, const char* begin, std::size_t size)
 
 int main(int argc, char** argv)
 {
-    if(argc != 3) {
-        std::cerr << "error, usage: program filename outputpath.\n";
+    if(argc != 4) {
+        std::cerr << "error, usage: program type filename outputpath.\n";
         return 1;
     }
 
-    const auto output_path = fs::path{argv[2]};
+    auto typev = std::string_view{argv[1]};
+
+    if (typev == "plain") {
+        type = encrypt_type::plain;
+    } else if (typev == "v1") {
+        type = encrypt_type::v1;
+    } else if (typev == "v2") {
+        type = encrypt_type::v2;
+    } else {
+        std::cerr << "Unknown type " << typev << "\n";
+        return 1;
+    }
+
+    const encryption_state initial_header{
+        counter_from_file_index(1)
+    };
+
+    const encryption_state initial_file_table{
+        counter_from_file_index(0x7ffffffe)
+    };
+
+
+    const auto output_path = fs::path{argv[3]};
     if(!fs::is_directory(output_path)) {
         std::cerr << output_path << " is not a directory.\n";
         return 2;
     }
 
-    std::ifstream file{argv[1], std::ios::binary};
+    std::ifstream file{argv[2], std::ios::binary};
 
     if(!file.is_open()) {
         std::cerr << "couldn't open file.\n";
@@ -350,6 +379,11 @@ int main(int argc, char** argv)
 
         const auto file_name_start = file_table_entry + 12;
         const auto file_name_size = load_le_uint32(file_table_entry + 8);
+
+        if (12 + file_name_size > wak_size) {
+            std::cerr << "file name is out of bounds.\n";
+            return 4;
+        }
 
         const auto file_name = std::string_view{file_name_start, file_name_size};
 
